@@ -1,2 +1,10 @@
+# remove app logs
 logs/*
-venv/*
+
+# dev environment stuff
+.venv/*
+__pycache__
+
+# remove certificates and keys
+*.crt
+*.key
