@@ -51,6 +51,8 @@
     },
 
     "OXIMETER_CONFIG": {
+        "MAC_ADDR": "E0:5A:A5:10:EE:58",
+        "TYPE": "BLACK",
         "GATT_CHARACTERISTIC": {
             "OxiSPO2": {
                 "GATT_CHAR_UUID": "0000a004-0000-1000-8000-00805f9b34fb",

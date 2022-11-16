@@ -5,20 +5,28 @@ import logging
 import logging.config
 import time
 
-from biosticker.handler import BiostickerBLEHandler
-from oximeter.handler import OximeterBLEHandler
+from smartbox_monopy.biosticker.asynchandler import BiostickerBLEHandler
+from smartbox_monopy.oximeter.asynchandler import OximeterBLEHandler
 
 
-async def consumer_dist0(queue: asyncio.Queue, ):
+async def consumer_dist(queue: asyncio.Queue):
     """Code which consumes the queue, by issuing commands to both MQTT and the DB handler."""
 
     while True:
         data = await queue.get()  # wait for data to be processed
 
+        # 
+
 
 async def main(config):
     # TODO: check if we need to set a maxsize to force .get to be executed earlier
     data_queue = asyncio.Queue()
+
+
+    # setup every coroutine to run
+    # BLE: Biosticker, Oximeter
+    # DB: MongoDBConsumer
+    # MQTT: MQTTClientConsumer
 
     biosticker_handler = BiostickerBLEHandler()
 
