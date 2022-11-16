@@ -6,9 +6,8 @@
 
 ### Prerequisites
 
-### Run
+## How to use
 
-#### Deploying
 
 ## Contributing
 
