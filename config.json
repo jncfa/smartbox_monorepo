@@ -1,0 +1,107 @@
+{
+    "characteristics": {
+      "Select Flag":
+      {
+        "uuid": "0000a001-0000-1000-8000-00805f9b34fb",
+        "name": "Biosticker Select Flag"
+      },
+      "Ping Flag":
+      {
+        "uuid": "0000a006-0000-1000-8000-00805f9b34fb",
+        "name": "Biosticker Ping Flag"
+      },
+      "Heart Rate":
+      {
+        "uuid": "00002a37-0000-1000-8000-00805f9b34fb",
+        "name": "Heart Rate Measurement",
+        "handle": 12,
+        "topic": "smartbox/{}/heartrate"
+      },
+      "Temperature":
+      {
+        "uuid": "00002a1c-0000-1000-8000-00805f9b34fb",
+        "name": "Temperature Measurement",
+        "handle": 22,
+        "topic": "smartbox/{}/temperature"
+      },
+      "Battery":
+      {
+        "uuid": "00002a19-0000-1000-8000-00805f9b34fb",
+        "name": "Battery Level",
+        "handle": 18
+      },
+      "RR_1": {
+        "uuid": "0000a002-0000-1000-8000-00805f9b34fb",
+        "name": "RR ADC",
+        "handle": 30,
+        "topic": "smartbox/{}/respiration"
+      },
+      "RR_2": {
+          "uuid": "0000a008-0000-1000-8000-00805f9b34fb",
+          "name": "RR 2 ADC",
+          "handle": 30,
+          "topic": "smartbox/{}/respiration"
+      },
+      "ECG":
+      {
+        "uuid": "0000a003-0000-1000-8000-00805f9b34fb",
+        "name": "ECG RAW",
+        "handle": 33,
+        "topic": "smartbox/{}/ecg"
+      },
+      "IMU":
+      {
+        "uuid": "0000a004-0000-1000-8000-00805f9b34fb",
+        "name": "IMU",
+        "handle": 36,
+        "topic": "smartbox/{}/imu"
+      },
+      "Oximetry":
+      {
+        "topic": "smartbox/{}/pulseoximetry"
+      }
+     },
+    "biosticker_mac_address": "E5:0C:DD:67:55:8F", 
+    "biosticker_simulated_mac_address": "E0:5A:A5:10:EE:58",
+    "oximeter_mac_address": "E8:E1:54:85:AA:61",
+    "verbose": "False",
+    "broker": "gateway-06df9ce3-c842-4cb3-bb32-881ca19b52af.local",
+    "port": "8883",
+    "client_id": "da45bb6e-d2ab-4f2b-a871-e2edaff50926",
+    "certificate_auth_file":"../smartbox_mqtt_transmission/ca.crt",
+    "cert_pem_file": "../smartbox_mqtt_transmission/client.crt",
+    "private_key_file": "../smartbox_mqtt_transmission/client.key",
+    "type_of_oximeter": "blue",
+    "messageTypes" : { 
+      "sync": {"request": "SYNC_REQ", "response": "SYNC_REP", "response_end": "SYNC_REP_END"},                   
+      "status": {"request": "STATUS_REQ", "response": "STATUS_REP"},
+      "temperature" : "MEASUREMENT_TEMPERATURE", 
+      "respiration": "MEASUREMENT_RESPIRATION",  
+      "ecg": "MEASUREMENT_ECG",   
+      "imu": "MEASUREMENT_IMU",    
+      "pulseoximetry": "MEASUREMENT_PULSEOXIMETRY",        
+      "heartrate": "MEASUREMENT_HEARTRATE",
+      "lwt": "WILL_BRD",
+      "pair": { "request": "PAIR_REQ", "response": "PAIR_REP" }
+  },
+  "topicSubscriptions" : {
+    "sync": {"request": "smartbox/da45bb6e-d2ab-4f2b-a871-e2edaff50926/sync"},
+    "status": {"request" : "status"},
+    "pair":{ "response": "smartbox/da45bb6e-d2ab-4f2b-a871-e2edaff50926/pair/response"}
+  
+  },
+  "topicResponses" : {
+    "sync": {"response": "smartbox/{}/sync/response"},
+    "status": {"response" : "status/{}"},
+    "lwt": "smartbox/{}/lwt",
+    "pair":{ "request": "smartbox/{}/pair"}
+  },
+  "mqtt":{
+    "connection":{
+      "keepAlive": 60,
+  
+      "host": "/tmp/mosquitto.sock",
+      "topicQos": 2
+      }
+    }
+  }
