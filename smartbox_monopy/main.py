@@ -4,44 +4,95 @@ import json
 import logging
 import logging.config
 import time
+import queue
+import signal
+import functools
 
 from smartbox_monopy.biosticker.asynchandler import BiostickerBLEHandler
 from smartbox_monopy.oximeter.asynchandler import OximeterBLEHandler
 
+from smartbox_monopy.db.asynchandler import MongoDBHandler
+from smartbox_monopy.mqtt.asynchandler import MQTTClientHandler
+from smartbox_monopy.processing.dataconsumerfactory import DataConsumerFactory
 
-async def consumer_dist(queue: asyncio.Queue):
-    """Code which consumes the queue, by issuing commands to both MQTT and the DB handler."""
+DEBUG_MODE_ENTRY="DEBUG"
 
-    while True:
-        data = await queue.get()  # wait for data to be processed
+# sig handler to safely keyboardinterrupt
+async def signal_handler(signo, loop):
+    print("Detected user interruption, shutting down..")
+    for task in asyncio.Task.all_tasks():
+        if task is asyncio.tasks.Task.current_task():
+            continue
+        task.cancel()
 
-        # 
+def entrypoint():
+    try:
+        # TODO: Check if we need to change the logger to process data in a seperate thread
+        logging.config.fileConfig('logging.config')
+
+        config = None
+        with open('config.json') as f:
+            config = json.load(f)
+
+        logger = logging.getLogger("main")
+        logger.info("Starting up...")
+
+        loop = asyncio.get_event_loop()
+    
+        for signo in [signal.SIGINT, signal.SIGTERM]:
+            func = functools.partial(asyncio.ensure_future, signal_handler(signo, loop))
+            loop.add_signal_handler(signo, func)
+
+        if (config[DEBUG_MODE_ENTRY] == True):
+            loop.set_debug(True)
+        else:
+            loop.set_debug(False)
 
 
-async def main(config):
-    # TODO: check if we need to set a maxsize to force .get to be executed earlier
-    data_queue = asyncio.Queue()
+        # setup every coroutine to run
+        # BLE: Biosticker, Oximeter [DONE]
+        # DB: MongoDBConsumer
+        # MQTT: MQTTClientConsumer
+        
+        # TODO: After setting up the MQTT client, use "pair_request"
+        # to indicate which biosticker is being used
+        
+        data_queue = asyncio.Queue(maxsize=1, loop=loop)
+        
+        # producers
+        biosticker_handler = BiostickerBLEHandler(config, data_queue)
+        oximeter_handler = OximeterBLEHandler(config, data_queue)
 
+        # consumers
+        #db_handler = MongoDBHandler(config)
+        #mqtt_handler = MQTTClientHandler(config, db_handler, data_queue)
+        db_handler = MongoDBHandler(config)
+        mqtt_handler = None
+        data_consumer_factory = DataConsumerFactory(config, data_queue, mqtt_handler, db_handler)
 
-    # setup every coroutine to run
-    # BLE: Biosticker, Oximeter
-    # DB: MongoDBConsumer
-    # MQTT: MQTTClientConsumer
+        logger.info("Sending pair requests to the broker")
 
-    biosticker_handler = BiostickerBLEHandler()
+        # Send
+        #await mqtt_handler.publish_pair_request(self.config["oximeter_mac_address"])
+        #await mqtt_handler.publish_pair_request(self.config["biosticker_mac_address"])
 
-    # Spin up the producers and consumers
-    await asyncio.gather(
-        connect_to_biosticker(config),
-        connect_to_oximeter(config)
-    )
+        logger.info("Coroutines setup, spinning up tasks...")
+        loop.run_until_complete(asyncio.gather(
+            # producers
+            biosticker_handler.spin(),
+            oximeter_handler.spin(),
 
+            # consumers / workers
+            *data_consumer_factory.spawn_workers(),
+            return_exceptions=False
+        ))
+
+    except asyncio.exceptions.CancelledError:
+        pass
+    except KeyboardInterrupt:
+        pass
+
+    raise SystemExit(0)
+    
 if __name__ == "__main__":
-    # TODO: Check if we need to change the logger to process data in a seperate thread
-    logging.config.fileConfig('logging.config')
-    config = None
-
-    with open('config.json') as f:
-        config = json.load(f)
-
-    asyncio.run(main(config), debug=True)
+    entrypoint()

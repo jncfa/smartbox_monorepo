@@ -3,7 +3,7 @@ import json
 import logging
 
 from smartbox_monopy.biosticker.config import BiostickerConfigParser
-from smartbox_monopy.biosticker.asynchandler import BiostickerBLEAsyncHandler
+from smartbox_monopy.biosticker.asynchandler import BiostickerBLEHandler
 
 from .setup_tests import demo_json_configfile
 

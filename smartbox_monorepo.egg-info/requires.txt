@@ -1,0 +1,5 @@
+asyncio
+bleak
+motor
+paho-mqtt
+scipy

@@ -1,107 +1,85 @@
 {
-    "characteristics": {
-      "Select Flag":
-      {
-        "uuid": "0000a001-0000-1000-8000-00805f9b34fb",
-        "name": "Biosticker Select Flag"
-      },
-      "Ping Flag":
-      {
-        "uuid": "0000a006-0000-1000-8000-00805f9b34fb",
-        "name": "Biosticker Ping Flag"
-      },
-      "Heart Rate":
-      {
-        "uuid": "00002a37-0000-1000-8000-00805f9b34fb",
-        "name": "Heart Rate Measurement",
-        "handle": 12,
-        "topic": "smartbox/{}/heartrate"
-      },
-      "Temperature":
-      {
-        "uuid": "00002a1c-0000-1000-8000-00805f9b34fb",
-        "name": "Temperature Measurement",
-        "handle": 22,
-        "topic": "smartbox/{}/temperature"
-      },
-      "Battery":
-      {
-        "uuid": "00002a19-0000-1000-8000-00805f9b34fb",
-        "name": "Battery Level",
-        "handle": 18
-      },
-      "RR_1": {
-        "uuid": "0000a002-0000-1000-8000-00805f9b34fb",
-        "name": "RR ADC",
-        "handle": 30,
-        "topic": "smartbox/{}/respiration"
-      },
-      "RR_2": {
-          "uuid": "0000a008-0000-1000-8000-00805f9b34fb",
-          "name": "RR 2 ADC",
-          "handle": 30,
-          "topic": "smartbox/{}/respiration"
-      },
-      "ECG":
-      {
-        "uuid": "0000a003-0000-1000-8000-00805f9b34fb",
-        "name": "ECG RAW",
-        "handle": 33,
-        "topic": "smartbox/{}/ecg"
-      },
-      "IMU":
-      {
-        "uuid": "0000a004-0000-1000-8000-00805f9b34fb",
-        "name": "IMU",
-        "handle": 36,
-        "topic": "smartbox/{}/imu"
-      },
-      "Oximetry":
-      {
-        "topic": "smartbox/{}/pulseoximetry"
-      }
-     },
-    "biosticker_mac_address": "E5:0C:DD:67:55:8F", 
-    "biosticker_simulated_mac_address": "E0:5A:A5:10:EE:58",
-    "oximeter_mac_address": "E8:E1:54:85:AA:61",
-    "verbose": "False",
-    "broker": "gateway-06df9ce3-c842-4cb3-bb32-881ca19b52af.local",
-    "port": "8883",
-    "client_id": "da45bb6e-d2ab-4f2b-a871-e2edaff50926",
-    "certificate_auth_file":"../smartbox_mqtt_transmission/ca.crt",
-    "cert_pem_file": "../smartbox_mqtt_transmission/client.crt",
-    "private_key_file": "../smartbox_mqtt_transmission/client.key",
-    "type_of_oximeter": "blue",
-    "messageTypes" : { 
-      "sync": {"request": "SYNC_REQ", "response": "SYNC_REP", "response_end": "SYNC_REP_END"},                   
-      "status": {"request": "STATUS_REQ", "response": "STATUS_REP"},
-      "temperature" : "MEASUREMENT_TEMPERATURE", 
-      "respiration": "MEASUREMENT_RESPIRATION",  
-      "ecg": "MEASUREMENT_ECG",   
-      "imu": "MEASUREMENT_IMU",    
-      "pulseoximetry": "MEASUREMENT_PULSEOXIMETRY",        
-      "heartrate": "MEASUREMENT_HEARTRATE",
-      "lwt": "WILL_BRD",
-      "pair": { "request": "PAIR_REQ", "response": "PAIR_REP" }
-  },
-  "topicSubscriptions" : {
-    "sync": {"request": "smartbox/da45bb6e-d2ab-4f2b-a871-e2edaff50926/sync"},
-    "status": {"request" : "status"},
-    "pair":{ "response": "smartbox/da45bb6e-d2ab-4f2b-a871-e2edaff50926/pair/response"}
-  
-  },
-  "topicResponses" : {
-    "sync": {"response": "smartbox/{}/sync/response"},
-    "status": {"response" : "status/{}"},
-    "lwt": "smartbox/{}/lwt",
-    "pair":{ "request": "smartbox/{}/pair"}
-  },
-  "mqtt":{
-    "connection":{
-      "keepAlive": 60,
-  
-      "host": "/tmp/mosquitto.sock",
-      "topicQos": 2
-      }
-    }
-  }
+    "BIOSTICKER_CONFIG": {
+        "MAC_ADDR": "E0:5A:A5:10:EE:58",
+        "ADAPTER_ID": "hci0",
+        "GATT_CHARACTERISTIC": {
+            "BioSELECT": {
+                "GATT_CHAR_UUID": "0000a001-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Biosticker Select Flag"
+            },
+            "BioPING": {
+                "GATT_CHAR_UUID": "0000a006-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Biosticker Ping Flag",
+                "GATT_CHAR_PERIOD_MS": 5000.0
+            },
+            "BioHR": {
+                "GATT_CHAR_UUID": "00002a37-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Heart Rate Measurement",
+                "GATT_CHAR_PERIOD_MS": 5000.0
+            },
+            "BioTEMP": {
+                "GATT_CHAR_UUID": "00002a1c-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Temperature Measurement",
+                "GATT_CHAR_PERIOD_MS": 60000.0
+            },
+            "BioBAT": {
+                "GATT_CHAR_UUID": "00002a19-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Battery Level Measurement",
+                "GATT_CHAR_PERIOD_MS": 10000.0
+            },
+            "BioRR1": {
+                "GATT_CHAR_UUID": "0000a002-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Respiration Rate RAW ADC1 Measurement",
+                "GATT_CHAR_PERIOD_MS": 100.0
+            },
+            "BioRR2": {
+                "GATT_CHAR_UUID": "0000a008-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "Respiration Rate RAW ADC2 Measurement",
+                "GATT_CHAR_PERIOD_MS": 100.0
+            },
+            "BioECG": {
+                "GATT_CHAR_UUID": "0000a003-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "ECG RAW ADC Measurement",
+                "GATT_CHAR_PERIOD_MS": 250.0
+            },
+            "BioIMU": {
+                "GATT_CHAR_UUID": "0000a004-0000-1000-8000-00805f9b34fb",
+                "GATT_CHAR_NAME": "IMU Measurement",
+                "GATT_CHAR_PERIOD_MS": 50.0
+            }
+        }
+    },
+
+    "OXIMETER_CONFIG": {
+        "MAC_ADDR": "E8:E1:54:85:AA:61",
+        "ADAPTER_ID": "hci1",
+        "TYPE": "BLUE",
+        "GATT_CHARACTERISTIC": {
+            "OxiPRSPO2": {
+                "GATT_CHAR_UUID": "6e400003-b5a3-f393-e0a9-e50e24dcca9e",
+                "GATT_CHAR_NAME": "PR+SPO2 Measurement",
+                "GATT_CHAR_PERIOD_MS": 100.0
+            },
+            "OxiInit": {
+                "GATT_CHAR_UUID": "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+                "GATT_CHAR_NAME": "Init Measurement"
+            }
+        }
+    },
+    "MQTT_CONFIG":{
+        "KEEP_ALIVE":60,
+        "QOS": 2,
+        "PORT":8883,
+        "HOST": "smartgateway",
+        "TLS_CONFIG":{
+            "CA_CERT_FILE":"ca.crt",
+            "CLIENT_CERT_FILE": "client.crt",
+            "CLIENT_KEY_FILE": "client.key"
+        }
+    },
+    "DB_CONFIG":{
+        "HOSTNAME":"mongodb://localhost:27017"
+    },
+    "CLIENT_ID":"da45bb6e-d2ab-4f2b-a871-e2edaff50926",
+    "DEBUG": false
+}

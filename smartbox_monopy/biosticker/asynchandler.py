@@ -1,99 +1,279 @@
 import asyncio
+from concurrent.futures import ProcessPoolExecutor
 import bleak
 import json
 import logging
 import logging.config
 import time
-from typing_extensions import final
+import asyncio
+import math
+from .options import BiostickerOptionsParser
+import struct
 
-from .config import BiostickerConfigParser
+from datetime import datetime as dt
+from datetime import timedelta
+
+from termcolor import colored
+from typing import final, List
+
+from smartbox_monopy.processing.queueitem import *
+
+class ECGTimestampedData(NamedTuple):
+    data: int
+    timestamp: dt
+
+class IMUData(NamedTuple):
+    pose_description: str
+    imu_vector: List[int]
 
 @final
-class BiostickerBLEAsyncHandler():
+class BiostickerBLEHandler():    
     """
     
     """
-    def __init__(self, config) -> None:
-        self.last_timestamps = {}
+    def __init__(self, options: dict, data_queue:asyncio.Queue) -> None:
+        self.data_queue = data_queue
+        self._last_timestamps = {}
         self.logger = logging.getLogger("biosticker")
-        self.config = config
-
-    def handle_data_imu(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'IMU: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    def handle_data_heart_rate(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'HR: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    def handle_data_temperature(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'Temp: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    def handle_data_battery(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'BAT: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    def handle_data_respiratory_rate(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'RR1: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    def handle_data_respiratory_rate_2(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'RR2: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    def handle_data_ecg(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        new_timestamp = time.monotonic_ns()
-        old_timestamp = self.last_timestamps.get(char, None)
-        if (old_timestamp is not None): # ignore first fail
-            self.logger.info(f'ECG: took {(new_timestamp -old_timestamp)/1e6} ms')
-
-        self.last_timestamps[char] = new_timestamp
-
-    async def spin(self):
-        pass
-    # async def connect_to_biosticker(self, config: dict):
-    #     #try:
-    #     async with bleak.BleakClient(config["biosticker_simulated_mac_address"], adapter='hci0', disconnected_callback=(lambda client : logger.info("Device disconnected"))) as client:
-    #         self.logger.info("Device connected")
+        self.options = BiostickerOptionsParser(options, self.logger)
         
-    #         biostickerLogger = BiostickerLogger(logger, config)
-    #         # select emulation mode
-    #         await client.write_gatt_char(config["characteristics"]["Select Flag"]["uuid"], bytearray([0x0A]))
-            
-    #         # configure notification on every characteristic
-    #         await client.start_notify(config["characteristics"]["IMU"]["uuid"], biostickerLogger.handle_data_imu)
-    #         await client.start_notify(config["characteristics"]["Heart Rate"]["uuid"], biostickerLogger.handle_data_heart_rate)
-    #         await client.start_notify(config["characteristics"]["Temperature"]["uuid"], biostickerLogger.handle_data_temperature)
-    #         await client.start_notify(config["characteristics"]["Battery"]["uuid"], biostickerLogger.handle_data_battery)
-    #         await client.start_notify(config["characteristics"]["RR_1"]["uuid"], biostickerLogger.handle_data_respiratory_rate)
-    #         await client.start_notify(config["characteristics"]["RR_2"]["uuid"], biostickerLogger.handle_data_respiratory_rate_2)
-    #         await client.start_notify(config["characteristics"]["ECG"]["uuid"], biostickerLogger.handle_data_ecg)
+        self._inner_process_pool = ProcessPoolExecutor(max_workers=8)
 
-    #         while (client.is_connected):
-    #             await asyncio.sleep(10) # ping biosticker every ~10 seconds on the "ping flag" characteristic (the watchdog timer is 30s)
-    #             await client.write_gatt_char(config["characteristics"]["Ping Flag"]["uuid"], bytearray([0x01]))
+        self._ecg_last_timestamp = None
+
+        # make a lookup table to get the sensor_id mappings 
+        self.sensor_id_lookup = {
+            sensor_tuple.uuid: sensor_id
+            for sensor_id, sensor_tuple in self.options.sensors.items()
+        }
+        
+        # make a lookup table to map the callbacks to each sensor, using the sensor_id
+        self.callback_map = {
+            BiostickerOptionsParser.HEARTRATE_SENSOR_ENTRY: self.handle_data_heart_rate, 
+            BiostickerOptionsParser.TEMPERATURE_SENSOR_ENTRY: self.handle_data_temperature, 
+            BiostickerOptionsParser.BATTERY_SENSOR_ENTRY: self.handle_data_battery, 
+            BiostickerOptionsParser.ECG_SENSOR_ENTRY: self.handle_data_ecg, 
+            BiostickerOptionsParser.RR1_SENSOR_ENTRY: self.handle_data_rr1, 
+            BiostickerOptionsParser.RR2_SENSOR_ENTRY: self.handle_data_rr2, 
+            BiostickerOptionsParser.IMU_SENSOR_ENTRY: self.handle_data_imu, 
+        }
+    
+    def _debug_display_time(self, sensor_id:str):
+        new_timestamp = time.monotonic_ns()
+        old_timestamp = self._last_timestamps.get(sensor_id, None)
+        if (old_timestamp is not None): # ignore first fail
+            time_ms = (new_timestamp -old_timestamp)/1e6
+            expected_ms = self.options.sensors[sensor_id].period
+            self.logger.debug(colored(f'{sensor_id}: took {time_ms} ms', "green" if (((time_ms - expected_ms) / expected_ms) < 0.5) else "red"))
+            #print(f'{sensor_id}: took {(new_timestamp -old_timestamp)/1e6} ms')
+        self._last_timestamps[sensor_id] = new_timestamp
+    
+    def ieee11073_to_float(self, bytestr):
+        FIRST_RESERVED_VALUE = 0x007FFFFE
+        MDER_NEGATIVE_INFINITY = 0x00800002
+        reserved_float_values = [math.inf, math.nan, math.nan, math.nan, -math.inf]
+
+        mantissa = int.from_bytes(bytestr[0:3], byteorder='little', signed=True)
+        expoent = int.from_bytes(bytestr[3:4], byteorder='little', signed=True)
+
+        if (mantissa >= FIRST_RESERVED_VALUE and mantissa <= MDER_NEGATIVE_INFINITY):
+            print(mantissa - FIRST_RESERVED_VALUE)
+            output = reserved_float_values[mantissa - FIRST_RESERVED_VALUE]
+        else:
+            output = mantissa * (10.0 ** (expoent))
+
+    async def handle_data_imu(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+
+            # [angular_acc(x,y,z), linear_acc(x,y,z)]
+            unpacked_data = struct.unpack('ffffff', data)
+            pose_description = "SITTING"
+
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                IMUData(pose_description, unpacked_data)
+            ))
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+
+    async def handle_data_heart_rate(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+            
+            readable_value=int.from_bytes(data, byteorder='big', signed=True)
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                readable_value
+            ))
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+
+    async def handle_data_temperature(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+            
+            readable_value=self.ieee11073_to_float(data[1:])
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                readable_value
+            ))
+
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+
+    async def handle_data_battery(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+            
+            readable_value = int.from_bytes(data, byteorder='big', signed=True)
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                readable_value
+            ))
+
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+
+    async def handle_data_rr1(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+
+            readable_value = int.from_bytes(data, byteorder='big', signed=True)
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                readable_value
+            ))
+            
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+    
+    async def handle_data_rr2(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+
+            readable_value = int.from_bytes(data, byteorder='big', signed=True)
+            
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                readable_value
+            ))
+
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+    
+    async def handle_data_ecg(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+
+            packet_count = data[0]
+            timestamp_ecg_aux = self.twos_comp(((data[(2 * packet_count) + 1] << 24) |(data[(2 * packet_count) + 2] << 16) |(data[(2 * packet_count) + 3] << 8) |(data[(2 * packet_count) + 4] & 0xFF)), 32)
+
+            timestamp_ecg = data_timestamp
+            # we always assume the first message is okay
+            if self._ecg_last_timestamp == None:
+                self._ecg_last_timestamp = (data_timestamp, timestamp_ecg_aux)
+            else:
+                # check if packets are missing using the timestamp difference
+                time_aux_dif_ms = timestamp_ecg_aux - self._ecg_last_timestamp[1] 
+                #expected_packet_count = time_aux_dif_ms // 7.8
+
+                # edit the timestamp ECG to represent the actual measurement
+                timestamp_ecg = self._ecg_last_timestamp[0] + timedelta(seconds=(time_aux_dif_ms/1000))
+                self._ecg_last_timestamp = (timestamp_ecg, timestamp_ecg_aux)
+
+            ecg_timestamped_data = []
+            if packet_count > 1:
+                for i in reversed(range(0, data[0])):
+                    timestamp_ecg = timestamp_ecg - timedelta(seconds=0.0078)
+                    readable_value  = (self.twos_comp(((data[(2 * i) + 1] << 8) |(data[(2 * i) + 2] & 0xFF)), 16))
+                    ecg_timestamped_data.append(ECGTimestampedData(timestamp_ecg, readable_value))
+            
+            await self.data_queue.put(QueueItem(
+                self.sensor_id_lookup[char.uuid], 
+                data_timestamp, 
+                ecg_timestamped_data
+            ))
+            
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+
+    def _on_disconnect(self, client: bleak.BleakClient):
+        self.logger.info("Device has disconnected")
+
+    def disconnect(self):
+        self.signal_disconnect=True
+        
+    def reset(self):
+        self.signal_disconnect=False
+        self._last_timestamps = {}
+        
+    async def spin(self):      
+        # reset state on spin
+        self.reset() 
+
+        # TODO: Should the devices attempt to pair as well?
+        while not self.signal_disconnect:
+            try:
+                async with bleak.BleakClient(self.options.mac_address, adapter=self.options.adapter_id, disconnected_callback=self._on_disconnect) as client:
+                    self.logger.info("Device connected.")
+                    
+                    # select emulation mode TODO: help?
+                    await client.write_gatt_char(self.options.flags[BiostickerOptionsParser.SELECT_FLAG_ENTRY].uuid, bytearray([0x0A]))
+                    # configure notification on every characteristic
+                    for sensor_id, sensor_callback in self.callback_map.items():
+                        await client.start_notify(self.options.sensors[sensor_id].uuid, sensor_callback)
+
+                    while (client.is_connected or self.signal_disconnect):
+                        await asyncio.sleep(10) # sleep while the client is connected or until something requests to halt the communications
+
+                        # ping biosticker 
+                        await client.write_gatt_char(self.options.flags[BiostickerOptionsParser.PING_FLAG_ENTRY].uuid, bytearray([0x01]))
+                
+                if (self.signal_disconnect):
+                    self.logger.info("Device disconnected properly.")
+                else:
+                    self.logger.info("Device disconnected unexpectedly, trying again...")
+
+            except bleak.exc.BleakDeviceNotFoundError:
+                self.logger.error("Device couldn't be found, trying again..")
+            
+            except bleak.exc.BleakDBusError:
+                self.logger.exception("Caught unknown DBus error.")
+                raise
+
+            except: 
+                self.logger.exception("Caught unknown error.")
+                raise
+
+    def twos_comp(self, val, bits):
+        if (val & (1 << (bits - 1))) != 0:
+            val = val - (1 << bits)
+        return val

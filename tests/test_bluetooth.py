@@ -3,13 +3,13 @@ import json
 import logging
 import asyncio
 
-from smartbox_monopy.biosticker.asynchandler import BiostickerBLEAsyncHandler
-from smartbox_monopy.oximeter.asynchandler import OximeterBLEAsyncHandler
+from smartbox_monopy.biosticker.asynchandler import BiostickerBLEHandler
+from smartbox_monopy.oximeter.asynchandler import OximeterBLEHandler
 
 from .setup_tests import demo_json_configfile
 
 
-async def sleep_and_shutdown(biosticker_handler:BiostickerBLEAsyncHandler, oximeter_handler:OximeterBLEAsyncHandler, timeout:float = 60):
+async def sleep_and_shutdown(biosticker_handler:BiostickerBLEHandler, oximeter_handler:OximeterBLEHandler, timeout:float = 60):
     # sleep for a bit
     await asyncio.sleep(timeout)
 
@@ -19,8 +19,8 @@ async def sleep_and_shutdown(biosticker_handler:BiostickerBLEAsyncHandler, oxime
 
 def test_simul_connection(demo_json_configfile):
     # initialize BLE handlers
-    biosticker_handler = BiostickerBLEAsyncHandler(demo_json_configfile)
-    oximeter_handler = OximeterBLEAsyncHandler(demo_json_configfile)
+    biosticker_handler = BiostickerBLEHandler(demo_json_configfile)
+    oximeter_handler = OximeterBLEHandler(demo_json_configfile)
 
     # spin up the handlers and wait a bit to issue a shutdown, if everything worked fine
     asyncio.gather(
