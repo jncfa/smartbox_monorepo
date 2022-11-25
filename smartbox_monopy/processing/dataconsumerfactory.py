@@ -10,7 +10,7 @@ from smartbox_monopy.oximeter.options import OximeterOptionsParser
 
 
 class DataConsumerFactory:
-    def __init__(self, config: dict, data_queue: asyncio.Queue, mqtt_client: mqtt.MQTTClientHandler, db: db.MongoDBHandler, worker_count = 10) -> None:
+    def __init__(self, config: dict, data_queue: asyncio.Queue, mqtt_client: mqtt.MQTTClientHandler, db: db.MongoDBHandler, worker_count = 6) -> None:
         self.mqtt_client = mqtt_client
         self.db = db
         self.data_queue = data_queue

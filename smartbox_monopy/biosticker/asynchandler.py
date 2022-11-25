@@ -1,5 +1,4 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
 import bleak
 import json
 import logging
@@ -15,6 +14,7 @@ from datetime import timedelta
 
 from termcolor import colored
 from typing import final, List
+from smartbox_monopy.vendor.wrapper import RespirationProcessorWrapper
 
 from smartbox_monopy.processing.queueitem import *
 
@@ -36,10 +36,8 @@ class BiostickerBLEHandler():
         self._last_timestamps = {}
         self.logger = logging.getLogger("biosticker")
         self.options = BiostickerOptionsParser(options, self.logger)
-        
-        self._inner_process_pool = ProcessPoolExecutor(max_workers=8)
-
         self._ecg_last_timestamp = None
+        self._resp_wrapper = RespirationProcessorWrapper()
 
         # make a lookup table to get the sensor_id mappings 
         self.sensor_id_lookup = {
@@ -58,7 +56,7 @@ class BiostickerBLEHandler():
             BiostickerOptionsParser.IMU_SENSOR_ENTRY: self.handle_data_imu, 
         }
     
-    def _debug_display_time(self, sensor_id:str):
+    def _debug_display_time(self, sensor_id:str)-> None:
         new_timestamp = time.monotonic_ns()
         old_timestamp = self._last_timestamps.get(sensor_id, None)
         if (old_timestamp is not None): # ignore first fail
@@ -82,7 +80,7 @@ class BiostickerBLEHandler():
         else:
             output = mantissa * (10.0 ** (expoent))
 
-    async def handle_data_imu(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_imu(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
@@ -101,7 +99,7 @@ class BiostickerBLEHandler():
             self.logger.exception("Caught unknown exception")
             raise
 
-    async def handle_data_heart_rate(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_heart_rate(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
@@ -117,7 +115,7 @@ class BiostickerBLEHandler():
             self.logger.exception("Caught unknown exception")
             raise
 
-    async def handle_data_temperature(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_temperature(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
@@ -134,7 +132,7 @@ class BiostickerBLEHandler():
             self.logger.exception("Caught unknown exception")
             raise
 
-    async def handle_data_battery(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_battery(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
@@ -151,42 +149,53 @@ class BiostickerBLEHandler():
             self.logger.exception("Caught unknown exception")
             raise
 
-    async def handle_data_rr1(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_rr1(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
                 self._debug_display_time(self.sensor_id_lookup[char.uuid])
 
             readable_value = int.from_bytes(data, byteorder='big', signed=True)
-            await self.data_queue.put(QueueItem(
-                self.sensor_id_lookup[char.uuid], 
-                data_timestamp, 
-                readable_value
-            ))
-            
-        except Exception:
-            self.logger.exception("Caught unknown exception")
-            raise
-    
-    async def handle_data_rr2(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
-        try:
-            data_timestamp = dt.now()
-            if self.options.debug_mode:
-                self._debug_display_time(self.sensor_id_lookup[char.uuid])
 
-            readable_value = int.from_bytes(data, byteorder='big', signed=True)
-            
-            await self.data_queue.put(QueueItem(
-                self.sensor_id_lookup[char.uuid], 
-                data_timestamp, 
-                readable_value
-            ))
+            if self._resp_wrapper.is_ready():
+                rpm = await self._resp_wrapper.compute_resp()
+                await self.data_queue.put(QueueItem(
+                    RR_SENSOR_EVENT, 
+                    data_timestamp, 
+                    rpm
+                ))
+                
+            self._resp_wrapper.append_rr1(readable_value, data_timestamp)
 
+
+            
         except Exception:
             self.logger.exception("Caught unknown exception")
             raise
     
-    async def handle_data_ecg(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_rr2(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
+        try:
+            data_timestamp = dt.now()
+            if self.options.debug_mode:
+                self._debug_display_time(self.sensor_id_lookup[char.uuid])
+
+            readable_value = int.from_bytes(data, byteorder='big', signed=True)
+        
+            if self._resp_wrapper.is_ready(): 
+                rpm = await self._resp_wrapper.compute_resp()
+                await self.data_queue.put(QueueItem(
+                    RR_SENSOR_EVENT, 
+                    data_timestamp, 
+                    rpm
+                ))
+
+            self._resp_wrapper.append_rr2(readable_value, data_timestamp)
+
+        except Exception:
+            self.logger.exception("Caught unknown exception")
+            raise
+    
+    async def handle_data_ecg(self, char: bleak.BleakGATTCharacteristic, data: bytearray)-> None:
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
@@ -225,17 +234,17 @@ class BiostickerBLEHandler():
             self.logger.exception("Caught unknown exception")
             raise
 
-    def _on_disconnect(self, client: bleak.BleakClient):
+    def _on_disconnect(self, client: bleak.BleakClient)-> None:
         self.logger.info("Device has disconnected")
 
-    def disconnect(self):
+    def disconnect(self)-> None:
         self.signal_disconnect=True
         
-    def reset(self):
+    def reset(self)-> None:
         self.signal_disconnect=False
         self._last_timestamps = {}
         
-    async def spin(self):      
+    async def spin(self)-> None:      
         # reset state on spin
         self.reset() 
 

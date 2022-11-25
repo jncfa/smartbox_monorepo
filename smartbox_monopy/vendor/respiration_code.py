@@ -77,6 +77,7 @@ def filterSignal_1(signal, fs, FILTER_TYPE):
 
 
 def computeResp(s_1, s_2):
+    print(s_1, s_2)
     fusion = []
     fusion_in_pro = []
     sensor_1 = filterSignal_1(s_1,10,'band')
