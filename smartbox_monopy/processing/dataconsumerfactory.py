@@ -34,6 +34,12 @@ class DataConsumerFactory:
             elif (id == RR_SENSOR_EVENT):
                 await self.db.insert_rr_data(data, timestamp)
                 #await self.mqtt_client.publish_rr_data(data, timestamp)
+            elif (id == RR1_SENSOR_EVENT):
+                await self.db.insert_rr1_data(data, timestamp)
+                #await self.mqtt_client.publish_rr_data(data, timestamp)
+            elif (id == RR2_SENSOR_EVENT):
+                await self.db.insert_rr2_data(data, timestamp)
+                #await self.mqtt_client.publish_rr_data(data, timestamp)
             elif (id == BATTERY_SENSOR_EVENT):
                 await self.db.insert_battery_data(data, timestamp)
                 #await self.mqtt_client.publish_battery_data(data, timestamp)

@@ -62,8 +62,10 @@ class BiostickerBLEHandler():
         if (old_timestamp is not None): # ignore first fail
             time_ms = (new_timestamp -old_timestamp)/1e6
             expected_ms = self.options.sensors[sensor_id].period
-            self.logger.debug(colored(f'{sensor_id}: took {time_ms} ms', "green" if (((time_ms - expected_ms) / expected_ms) < 0.5) else "red"))
-            #print(f'{sensor_id}: took {(new_timestamp -old_timestamp)/1e6} ms')
+
+            if (abs((time_ms - expected_ms) / expected_ms) > 0.5):
+                self.logger.warning(f'{sensor_id}: took {time_ms}({"+" if (time_ms - expected_ms) > 0 else "-"} {100*(abs(time_ms - expected_ms) / expected_ms)}%) ms')
+                
         self._last_timestamps[sensor_id] = new_timestamp
     
     def ieee11073_to_float(self, bytestr):
@@ -88,6 +90,8 @@ class BiostickerBLEHandler():
 
             # [angular_acc(x,y,z), linear_acc(x,y,z)]
             unpacked_data = struct.unpack('ffffff', data)
+            
+            # TODO: Add pose description classification 
             pose_description = "SITTING"
 
             await self.data_queue.put(QueueItem(
@@ -156,19 +160,23 @@ class BiostickerBLEHandler():
                 self._debug_display_time(self.sensor_id_lookup[char.uuid])
 
             readable_value = int.from_bytes(data, byteorder='big', signed=True)
+            await self.data_queue.put(QueueItem(
+                RR1_SENSOR_EVENT, 
+                data_timestamp, 
+                readable_value
+            ))
 
             if self._resp_wrapper.is_ready():
+                #TODO: Their code literally does not work, uncomment the append after fixing
                 rpm = await self._resp_wrapper.compute_resp()
                 await self.data_queue.put(QueueItem(
                     RR_SENSOR_EVENT, 
                     data_timestamp, 
                     rpm
                 ))
-                
+            
             self._resp_wrapper.append_rr1(readable_value, data_timestamp)
 
-
-            
         except Exception:
             self.logger.exception("Caught unknown exception")
             raise
@@ -180,7 +188,13 @@ class BiostickerBLEHandler():
                 self._debug_display_time(self.sensor_id_lookup[char.uuid])
 
             readable_value = int.from_bytes(data, byteorder='big', signed=True)
-        
+            
+            await self.data_queue.put(QueueItem(
+                RR2_SENSOR_EVENT, 
+                data_timestamp, 
+                readable_value
+            ))
+
             if self._resp_wrapper.is_ready(): 
                 rpm = await self._resp_wrapper.compute_resp()
                 await self.data_queue.put(QueueItem(
@@ -211,8 +225,11 @@ class BiostickerBLEHandler():
             else:
                 # check if packets are missing using the timestamp difference
                 time_aux_dif_ms = timestamp_ecg_aux - self._ecg_last_timestamp[1] 
-                #expected_packet_count = time_aux_dif_ms // 7.8
-
+                
+                expected_packet_count = time_aux_dif_ms // 7.8
+                
+                if packet_count < expected_packet_count:
+                    self.logger.warning(f'Expected {expected_packet_count} ECG data points, but only got packet_count')
                 # edit the timestamp ECG to represent the actual measurement
                 timestamp_ecg = self._ecg_last_timestamp[0] + timedelta(seconds=(time_aux_dif_ms/1000))
                 self._ecg_last_timestamp = (timestamp_ecg, timestamp_ecg_aux)
@@ -235,7 +252,7 @@ class BiostickerBLEHandler():
             raise
 
     def _on_disconnect(self, client: bleak.BleakClient)-> None:
-        self.logger.info("Device has disconnected")
+        self.logger.info("Device has disconnected.")
 
     def disconnect(self)-> None:
         self.signal_disconnect=True

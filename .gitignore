@@ -8,3 +8,5 @@ __pycache__
 # remove certificates and keys
 *.crt
 *.key
+
+*.egg-info/*

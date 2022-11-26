@@ -164,7 +164,7 @@ class OximeterBLEHandler():
                     self.logger.info("Device disconnected unexpectedly, trying again...")
 
             except bleak.exc.BleakDeviceNotFoundError:
-                self.logger.error("Device couldn't be found, trying again..")
+                self.logger.error("Device couldn't be found, trying again...")
             
             except bleak.exc.BleakDBusError:
                 self.logger.exception("Caught unknown DBus error.")

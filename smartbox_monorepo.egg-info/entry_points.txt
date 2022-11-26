@@ -1,3 +1,0 @@
-[console_scripts]
-smartbox_init_services = smartbox_monopy.main:entrypoint
-
