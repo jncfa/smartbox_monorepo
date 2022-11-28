@@ -67,6 +67,7 @@
         }
     },
     "MQTT_CONFIG":{
+        "DISABLE_MQTT": false,
         "KEEP_ALIVE":60,
         "QOS": 2,
         "PORT":1883,

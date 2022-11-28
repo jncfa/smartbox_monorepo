@@ -48,38 +48,34 @@ class MQTTClientHandler():
         # MQTT Client is initialized via context manager, so we need to be careful handling this
         # We're handling this via an internal queue in which we "push" messages to be sent
         self.is_connected: bool = False
-        self._inner_message_queue: asyncio.Queue[MQTTClientHandler._MQTTQueueMessageStruct] = asyncio.Queue(maxsize=1)
+        self._inner_message_queue: asyncio.Queue[MQTTClientHandler._MQTTQueueMessageStruct] = asyncio.Queue(
+            maxsize=1)
         #self._mqtt_client: Union[aiomqtt.Client, None] = None
 
     async def publish_ecg_data(self, data: List[ECGTimestampedData], timestamp: datetime):
         self.logger.debug(f"Publishing ECG data...")
-        print("test0")
         if (self.is_connected):
             # build payload
-            print("test1")
             for ecg_data, timestamp in data:
-                print("test2")
                 payload = {
                     "client_id": str(self.config.client_uuid),
-                    "timestamp": timestamp,
+                    "timestamp": timestamp.timestamp(),
                     "message_type": self.config.event_message_type_map[QueueEvent.ECG_SENSOR_EVENT],
                     "payload": {"bpm": ecg_data}
                 }
-                print("test3")
                 await self._inner_message_queue.put(MQTTClientHandler._MQTTQueueMessageStruct(self.config.event_topic_map[QueueEvent.ECG_SENSOR_EVENT], json.dumps(payload)))
-                print("test4")
         else:
             self.logger.warning(
                 f"Client is not connected, discarding message...")
 
-    async def publish_imu_data(self, data: IMUData, timestam0_: datetime):
+    async def publish_imu_data(self, data: IMUData, timestamp: datetime):
         self.logger.debug(f"Publishing IMU data...")
         if (self.is_connected):
             # build payload
 
             payload = {
                 "client_id": str(self.config.client_uuid),
-                "timestamp": timestamp,
+                "timestamp": timestamp.timestamp(),
                 "message_type": self.config.event_message_type_map[QueueEvent.IMU_SENSOR_EVENT],
                 "payload": {
                     "imu": {
@@ -100,14 +96,14 @@ class MQTTClientHandler():
             self.logger.warning(
                 f"Client is not connected, discarding message...")
 
-    async def publish_rr_data(self, data: int, timestamp):
+    async def publish_rr_data(self, data: int, timestamp: datetime):
         self.logger.debug(f"Publishing Respiration data...")
         if (self.is_connected):
             # build payload
 
             payload = {
                 "client_id": str(self.config.client_uuid),
-                "timestamp": timestamp,
+                "timestamp": timestamp.timestamp(),
                 "message_type": self.config.event_message_type_map[QueueEvent.RR_SENSOR_EVENT],
                 "payload": {"respiration": data}
             }
@@ -117,14 +113,14 @@ class MQTTClientHandler():
             self.logger.warning(
                 f"Client is not connected, discarding message...")
 
-    async def publish_heartrate_data(self, data: int, timestamp):
+    async def publish_heartrate_data(self, data: int, timestamp: datetime):
         self.logger.debug(f"Publishing Respiration data...")
         if (self.is_connected):
             # build payload
 
             payload = {
                 "client_id": str(self.config.client_uuid),
-                "timestamp": timestamp,
+                "timestamp": timestamp.timestamp(),
                 "message_type": self.config.event_message_type_map[QueueEvent.HEARTRATE_SENSOR_EVENT],
                 "payload": {"bpm": data}
             }
@@ -134,14 +130,14 @@ class MQTTClientHandler():
             self.logger.warning(
                 f"Client is not connected, discarding message...")
 
-    async def publish_temperature_data(self, data: float, timestamp):
+    async def publish_temperature_data(self, data: float, timestamp: datetime):
         self.logger.debug(f"Publishing Temperature data...")
         if (self.is_connected):
             # build payload
 
             payload = {
                 "client_id": str(self.config.client_uuid),
-                "timestamp": timestamp,
+                "timestamp": timestamp.timestamp(),
                 "message_type": self.config.event_message_type_map[QueueEvent.TEMPERATURE_SENSOR_EVENT],
                 "payload": {"temperature": data, "is_celsius": True}
             }
@@ -151,14 +147,14 @@ class MQTTClientHandler():
             self.logger.warning(
                 f"Client is not connected, discarding message...")
 
-    async def publish_spo2_data(self, data: int, timestamp):
+    async def publish_spo2_data(self, data: int, timestamp: datetime):
         self.logger.debug(f"Publishing SPO2 data...")
         if (self.is_connected):
             # build payload
 
             payload = {
                 "client_id": str(self.config.client_uuid),
-                "timestamp": timestamp,
+                "timestamp": timestamp.timestamp(),
                 "message_type": self.config.event_message_type_map[QueueEvent.SPO2_SENSOR_EVENT],
                 "payload": {"spo2": data}
             }
@@ -192,30 +188,42 @@ class MQTTClientHandler():
                     print(message.topic)
                     print(json.loads(message.payload))
         self.logger.debug(f"sync-worker-{worker_id}: Stopping worker...")
+
     async def spin(self):
-        # reset state on spin
-        self.reset()
-        self.logger.info(
+        if self.config.disable_mqtt:
+            self.logger.info(
+                f"MQTT is disabled in the configuration file, so no communication will be handled, silently ignoring MQTT requests")
+
+            # removing handlers since we're not doing anything with MQTT
+            for handler in self.logger.handlers:
+                self.logger.removeHandler(handler)
+            self.logger.addHandler(logging.NullHandler())
+            
+        else:    
+            # reset state on spin
+            self.reset()
+            self.logger.info(
                 f"Connecting to remote broker...")
-        while not self.signal_disconnect:
-            self.is_connected = False
-            try:
-                async with aiomqtt.Client(self.config.host, tls_params=self.config.tls_config, logger=self.logger) as mqtt_client:
-                    self.is_connected = True
-
-                    await asyncio.gather(
-                        self._publish_worker(mqtt_client),
-                        self._sync_handler_worker(mqtt_client)
-                    )
-
-            except aiomqtt.MqttError as error:
-                self.logger.exception(
-                    f'Error "{error}". Reconnecting in {self.config.reconnect_interval} seconds.')
-
-            except Exception as exc:
-                self.logger.exception(
-                    f'Unknown exception detected. Reconnecting in {self.config.reconnect_interval} seconds.')
-
-            finally:
+            while not self.signal_disconnect:
                 self.is_connected = False
-                await asyncio.sleep(self.config.reconnect_interval)
+                try:
+                    async with aiomqtt.Client(self.config.host, tls_params=self.config.tls_config, logger=self.logger) as mqtt_client:
+                        self.is_connected = True
+
+                        await asyncio.gather(
+                            self._publish_worker(mqtt_client),
+                            self._sync_handler_worker(mqtt_client)
+                        )
+                        print("stopped working?")
+
+                except aiomqtt.MqttError as error:
+                    self.logger.exception(
+                        f'Error "{error}". Reconnecting in {self.config.reconnect_interval} seconds.')
+
+                except Exception as exc:
+                    self.logger.exception(
+                        f'Unknown exception detected. Reconnecting in {self.config.reconnect_interval} seconds.')
+
+                finally:
+                    self.is_connected = False
+                    await asyncio.sleep(self.config.reconnect_interval)

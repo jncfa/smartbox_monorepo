@@ -26,9 +26,7 @@ class DataConsumerFactory:
             logger.debug(f"running in worker task {id=}, {timestamp=}, {data=}")
             try:
                 if (id == QueueEvent.ECG_SENSOR_EVENT):
-                    print("yo")
                     await self.db.insert_ecg_data(data, timestamp)
-                    print("yo1")
                     await self.mqtt_client.publish_ecg_data(data, timestamp)
                 elif (id == QueueEvent.IMU_SENSOR_EVENT):
                     await self.db.insert_imu_data(data, timestamp)

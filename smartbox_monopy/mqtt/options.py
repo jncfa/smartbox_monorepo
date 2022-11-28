@@ -25,12 +25,13 @@ class MQTTOptionsParser():
     KEEP_ALIVE_ENTRY='KEEP_ALIVE'
     RECONNECT_INTERNAL_ENTRY='RECONNECT_INTERVAL'
     QOS_ENTRY='QOS'
-    
+    DISABLE_MQTT_ENTRY = 'DISABLE_MQTT'
+
     TLS_CONFIG_SECTION_ENTRY = 'TLS_CONFIG'
     CA_CERT_FILE_ENTRY = 'CA_CERT_FILE'
     CLIENT_CERT_FILE_ENTRY = 'CLIENT_CERT_FILE'
     CLIENT_KEY_FILE_ENTRY= 'CLIENT_KEY_FILE'
-
+    
     TLS_CONFIG_ENTRIES = [
         CA_CERT_FILE_ENTRY,
         CLIENT_CERT_FILE_ENTRY,
@@ -41,10 +42,16 @@ class MQTTOptionsParser():
         """Parse the supplied config file. The class checks if the config defines all required keys to continue execution. """
         try:
             mqtt_config:dict = config[MQTTOptionsParser.JSON_SECTION_ENTRY]
+
+            self.disable_mqtt: bool = mqtt_config.get(MQTTOptionsParser.DISABLE_MQTT_ENTRY, False) 
+
+            if self.disable_mqtt:
+                return # don't process the remainder of the config if we have disabled MQTT
             
             if (not isinstance(config.get(MQTTOptionsParser.DEBUG_MODE_ENTRY, False), bool)):
                 raise TypeError(f'Expected type "{type(bool)}", got "{type(config[MQTTOptionsParser.DEBUG_MODE_ENTRY])}"' )
-            
+        
+
             # don't fail if debug is not defined, assume it's always release mode in case it doesn't exist
             # TODO: add type/value checking to each param
             self.debug_mode: bool = config.get(MQTTOptionsParser.DEBUG_MODE_ENTRY, False)
@@ -81,22 +88,22 @@ class MQTTOptionsParser():
             # map that indicates the topic used for the given event
             self.event_topic_map = {
                 # sensor publish events
-                QueueEvent.HEARTRATE_SENSOR_EVENT: 'smartbox/{self.config.client_uuid}/heartrate',
-                QueueEvent.ECG_SENSOR_EVENT: 'smartbox/{self.config.client_uuid}/ecg',
-                QueueEvent.TEMPERATURE_SENSOR_EVENT: 'smartbox/{self.config.client_uuid}/temperature',
-                QueueEvent.RR_SENSOR_EVENT: 'smartbox/{self.config.client_uui}/respiration',
-                QueueEvent.IMU_SENSOR_EVENT: 'smartbox{self.config.client_uuid}/imu',
-                QueueEvent.SPO2_SENSOR_EVENT: 'smartbox/{self.config.client_uuid}/pulseoximetry',
+                QueueEvent.HEARTRATE_SENSOR_EVENT: f'smartbox/{str(self.client_uuid)}/heartrate',
+                QueueEvent.ECG_SENSOR_EVENT: f'smartbox/{str(self.client_uuid)}/ecg',
+                QueueEvent.TEMPERATURE_SENSOR_EVENT: f'smartbox/{str(self.client_uuid)}/temperature',
+                QueueEvent.RR_SENSOR_EVENT: f'smartbox/{str(self.client_uuid)}/respiration',
+                QueueEvent.IMU_SENSOR_EVENT: f'smartbox/{str(self.client_uuid)}/imu',
+                QueueEvent.SPO2_SENSOR_EVENT: f'smartbox/{str(self.client_uuid)}/pulseoximetry',
 
                 # mqtt specific events
-                QueueEvent.MQTT_SYNC_REQ_EVENT: 'smartbox/{self.config.client_uuid}/sync',
-                QueueEvent.MQTT_SYNC_REP_EVENT: 'smartbox/{self.config.client_uuid}/sync/response',
-                QueueEvent.MQTT_SYNC_FINAL_REP_EVENT: 'smartbox/{self.config.client_uuid}/sync/response',
+                QueueEvent.MQTT_SYNC_REQ_EVENT: f'smartbox/{str(self.client_uuid)}/sync',
+                QueueEvent.MQTT_SYNC_REP_EVENT: f'smartbox/{str(self.client_uuid)}/sync/response',
+                QueueEvent.MQTT_SYNC_FINAL_REP_EVENT: f'smartbox/{str(self.client_uuid)}/sync/response',
                 QueueEvent.MQTT_STATUS_REQ_EVENT:  'status', 
-                QueueEvent.MQTT_STATUS_REP_EVENT: 'status/{self.config.client_uuid}', 
-                QueueEvent.MQTT_WILL_EVENT: 'smartbox/{self.config.client_uuid}/lwt',
-                QueueEvent.MQTT_PAIR_REQ_EVENT: 'smartbox/{self.config.client_uuid}/pair',
-                QueueEvent.MQTT_PAIR_REP_EVENT: 'smartbox/{self.config.client_uuid}/pair/response'
+                QueueEvent.MQTT_STATUS_REP_EVENT: f'status/{str(self.client_uuid)}', 
+                QueueEvent.MQTT_WILL_EVENT: f'smartbox/{str(self.client_uuid)}/lwt',
+                QueueEvent.MQTT_PAIR_REQ_EVENT: f'smartbox/{str(self.client_uuid)}/pair',
+                QueueEvent.MQTT_PAIR_REP_EVENT: f'smartbox/{str(self.client_uuid)}/pair/response'
             }
             
             # these are technically constants, but it won't really affect performance
