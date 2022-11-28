@@ -63,16 +63,10 @@ def entrypoint():
         oximeter_handler = OximeterBLEHandler(config, data_queue)
 
         # consumers
-        mqtt_handler = None
+        #mqtt_handler = None
         db_handler = MongoDBHandler(config)
-        #mqtt_handler = MQTTClientHandler(config, db_handler)
+        mqtt_handler = MQTTClientHandler(config, db_handler)
         data_consumer_factory = DataConsumerFactory(config, data_queue, mqtt_handler, db_handler)
-
-        logger.info("Sending pair requests to the broker...")
-
-        # Send
-        #await mqtt_handler.publish_pair_request(self.biosticker_handler.config.mac_address)
-        #await mqtt_handler.publish_pair_request(self.oximeter_handler.config.mac_address)
 
         logger.info("Coroutines setup, spinning up tasks...")
         loop.run_until_complete(asyncio.gather(
@@ -80,6 +74,8 @@ def entrypoint():
             biosticker_handler.spin(),
             oximeter_handler.spin(),
 
+            mqtt_handler.spin(),
+             
             # consumers / workers
             *data_consumer_factory.spawn_workers(),
             return_exceptions=False

@@ -69,9 +69,14 @@
     "MQTT_CONFIG":{
         "KEEP_ALIVE":60,
         "QOS": 2,
-        "PORT":1883,
-        "HOST": "broker.hivemq.com",
-        "RECONNECT_INTERVAL": 5
+        "PORT":8883,
+        "HOST": "smartgateway",
+        "RECONNECT_INTERVAL": 5,
+        "TLS_CONFIG":{
+            "CA_CERT_FILE":"ca.crt",
+            "CLIENT_CERT_FILE": "client.crt",
+            "CLIENT_KEY_FILE": "client.key"
+        }
     },
     "DB_CONFIG":{
         "HOSTNAME":"mongodb://localhost:27017"

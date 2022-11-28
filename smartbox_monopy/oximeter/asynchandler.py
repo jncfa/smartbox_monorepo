@@ -1,16 +1,16 @@
 import asyncio
-import bleak
-import json
 import logging
 import logging.config
 import time
 from datetime import datetime as dt
 from typing_extensions import final
 from termcolor import colored
-import queue
-import struct
 from .options import OximeterOptionsParser
 import libscrc
+
+
+import bleak
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
 from smartbox_monopy.processing.queueitem import *
 
@@ -19,7 +19,7 @@ class OximeterBLEHandler():
     """
     
     """
-    def __init__(self, config: dict, data_queue:asyncio.Queue) -> None:
+    def __init__(self, config: dict, data_queue: asyncio.Queue) -> None:
         self.data_queue = data_queue
         self._last_timestamps = {}
         self.logger = logging.getLogger("oximeter")
@@ -52,7 +52,7 @@ class OximeterBLEHandler():
 
         self._last_timestamps[sensor_id] = new_timestamp
 
-    async def handle_data_prspo2_black(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_prspo2_black(self, char: BleakGATTCharacteristic, data: bytearray):
         data_timestamp = dt.now()
         try:
             if self.options.debug_mode:
@@ -75,7 +75,7 @@ class OximeterBLEHandler():
         except Exception:
             self.logger.exception("Caught unknown exception")
             raise
-    async def handle_data_prspo2_blue(self, char: bleak.BleakGATTCharacteristic, data: bytearray):
+    async def handle_data_prspo2_blue(self, char: BleakGATTCharacteristic, data: bytearray):
         try:
             data_timestamp = dt.now()
             if self.options.debug_mode:
