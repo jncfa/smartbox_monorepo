@@ -29,6 +29,7 @@ class BiostickerOptionsParser():
     ADAPTER_ID_ENTRY="ADAPTER_ID"
     MAC_ADDR_ENTRY="MAC_ADDR" # MAC Address of the biosticker
     DEBUG_MODE_ENTRY="DEBUG"
+    SIM_BIOSTICKER_ENTRY = "SIM_BIOSTICKER"
 
     CONNECTION_RETRIES_ENTRY="CONNECTION_RETRIES_ENTRY" # number of connection tries (0 = inf)
     
@@ -77,7 +78,7 @@ class BiostickerOptionsParser():
             self.adapter_id:str = biosticker_config[BiostickerOptionsParser.ADAPTER_ID_ENTRY]
             self.sensors:dict = {} # TODO: Turn this into an actual object later down the road
             self.flags:dict = {}
-
+            self.is_sim_biosticker = biosticker_config.get(BiostickerOptionsParser.SIM_BIOSTICKER_ENTRY, False)
             gatt_chars_config = biosticker_config[BiostickerOptionsParser.GATT_CHARACTERISTIC_SECTION_ENTRY]
             for sensor in BiostickerOptionsParser.SENSOR_LIST:
                 sensor_config = gatt_chars_config[sensor]

@@ -4,7 +4,6 @@ import logging.config
 import time
 from datetime import datetime as dt
 from typing_extensions import final
-from termcolor import colored
 from .options import OximeterOptionsParser
 import libscrc
 
@@ -63,11 +62,11 @@ class OximeterBLEHandler():
                 readable_value_spo2=data[5]
                 readable_value_pr=data[4]
 
-                await self.data_queue.put(QueueItem(PR_SENSOR_EVENT,
+                await self.data_queue.put(QueueItem(QueueEvent.PR_SENSOR_EVENT,
                     data_timestamp,
                     readable_value_pr))
 
-                await self.data_queue.put(QueueItem(SPO2_SENSOR_EVENT,
+                await self.data_queue.put(QueueItem(QueueEvent.SPO2_SENSOR_EVENT,
                     data_timestamp,
                     readable_value_spo2))
             else:
@@ -75,6 +74,7 @@ class OximeterBLEHandler():
         except Exception:
             self.logger.exception("Caught unknown exception")
             raise
+
     async def handle_data_prspo2_blue(self, char: BleakGATTCharacteristic, data: bytearray):
         try:
             data_timestamp = dt.now()
@@ -120,11 +120,11 @@ class OximeterBLEHandler():
                                 readable_value_pr=message[4]
                                 #readable_value_pi=message[6] / 10 # unused in our code
 
-                                await self.data_queue.put(QueueItem(PR_SENSOR_EVENT,
+                                await self.data_queue.put(QueueItem(QueueEvent.PR_SENSOR_EVENT,
                                     data_timestamp,
                                     readable_value_pr))
 
-                                await self.data_queue.put(QueueItem(SPO2_SENSOR_EVENT,
+                                await self.data_queue.put(QueueItem(QueueEvent.SPO2_SENSOR_EVENT,
                                     data_timestamp,
                                     readable_value_spo2))
                     else:

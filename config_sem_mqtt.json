@@ -2,7 +2,7 @@
     "BIOSTICKER_CONFIG": {
         "MAC_ADDR": "E0:5A:A5:10:EE:58",
         "ADAPTER_ID": "hci0",
-        "SIM_BIOSTICKER": true,
+        "SIM_BIOSTICKER": false,
         "GATT_CHARACTERISTIC": {
             "BioSELECT": {
                 "GATT_CHAR_UUID": "0000a001-0000-1000-8000-00805f9b34fb",
@@ -68,12 +68,7 @@
         }
     },
     "MQTT_CONFIG":{
-        "DISABLE_MQTT": true,
-        "KEEP_ALIVE":60,
-        "QOS": 2,
-        "PORT":1883,
-        "HOST": "broker.hivemq.com",
-        "RECONNECT_INTERVAL": 5
+        "DISABLE_MQTT": true
     },
     "DB_CONFIG":{
         "HOSTNAME":"mongodb://localhost:27017"

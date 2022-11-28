@@ -177,7 +177,7 @@ class BiostickerBLEHandler():
                     rpm
                 ))
 
-            self._resp_wrapper.append_rr1(readable_value, data_timestamp)
+            #self._resp_wrapper.append_rr1(readable_value, data_timestamp)
 
         except Exception:
             self.logger.exception("Caught unknown exception")
@@ -205,7 +205,7 @@ class BiostickerBLEHandler():
                     rpm
                 ))
 
-            self._resp_wrapper.append_rr2(readable_value, data_timestamp)
+            #self._resp_wrapper.append_rr2(readable_value, data_timestamp)
 
         except Exception:
             self.logger.exception("Caught unknown exception")
@@ -280,7 +280,11 @@ class BiostickerBLEHandler():
                     self.logger.info("Device connected.")
 
                     # select emulation mode TODO: help?
-                    await client.write_gatt_char(self.options.flags[BiostickerOptionsParser.SELECT_FLAG_ENTRY].uuid, bytearray([0x0A]))
+                    if self.options.is_sim_biosticker:
+                        await client.write_gatt_char(self.options.flags[BiostickerOptionsParser.SELECT_FLAG_ENTRY].uuid, bytearray([0x0A]))
+                    else: 
+                        await client.write_gatt_char(self.options.flags[BiostickerOptionsParser.SELECT_FLAG_ENTRY].uuid, bytearray([0x0D]))
+
                     # configure notification on every characteristic
                     for sensor_id, sensor_callback in self.callback_map.items():
                         await client.start_notify(self.options.sensors[sensor_id].uuid, sensor_callback)
