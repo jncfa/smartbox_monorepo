@@ -29,7 +29,7 @@ class MongoDBHandler():
 
     async def insert_ecg_data(self, data, timestamp):
         # this contains multiple points
-        for data_ts, data_point in data:
+        for data_point, data_ts in data:
             await self.insert_sensors_collection('ECG', data_point, data_ts)
 
     async def insert_rr_data(self, data, timestamp):
