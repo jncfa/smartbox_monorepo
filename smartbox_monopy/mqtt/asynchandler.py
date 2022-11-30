@@ -207,7 +207,7 @@ class MQTTClientHandler():
             while not self.signal_disconnect:
                 self.is_connected = False
                 try:
-                    async with aiomqtt.Client(self.config.host, tls_params=self.config.tls_config, logger=self.logger) as mqtt_client:
+                    async with aiomqtt.Client(self.config.host, tls_params=self.config.tls_config, client_id=str(self.config.client_uuid), logger=self.logger) as mqtt_client:
                         self.is_connected = True
 
                         await asyncio.gather(
