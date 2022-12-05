@@ -61,7 +61,7 @@ class MQTTClientHandler():
                     "client_id": str(self.config.client_uuid),
                     "timestamp": timestamp.timestamp(),
                     "message_type": self.config.event_message_type_map[QueueEvent.ECG_SENSOR_EVENT],
-                    "payload": {"bpm": ecg_data}
+                    "payload": {"ecg": ecg_data}
                 }
                 await self._inner_message_queue.put(MQTTClientHandler._MQTTQueueMessageStruct(self.config.event_topic_map[QueueEvent.ECG_SENSOR_EVENT], json.dumps(payload)))
         else:
