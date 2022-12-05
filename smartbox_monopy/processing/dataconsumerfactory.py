@@ -38,19 +38,21 @@ class DataConsumerFactory:
                     await self.db.insert_rr1_data(data, timestamp)
                 elif (id == QueueEvent.RR2_SENSOR_EVENT):
                     await self.db.insert_rr2_data(data, timestamp)
-                elif (id== QueueEvent.RR_SENSOR_EVENT):
-                    await self.mqtt_client.publish_rr_data(data, timestamp)
                 elif (id == QueueEvent.HEARTRATE_SENSOR_EVENT):
                     await self.db.insert_heartrate_data(data, timestamp)
                     await self.mqtt_client.publish_heartrate_data(data, timestamp)
                 elif (id == QueueEvent.TEMPERATURE_SENSOR_EVENT):
                     await self.db.insert_temperature_data(data, timestamp)
                     await self.mqtt_client.publish_temperature_data(data, timestamp)
+                elif (id == QueueEvent.BATTERY_SENSOR_EVENT):
+                    await self.db.insert_battery_data(data, timestamp)
                 elif (id == QueueEvent.SPO2_SENSOR_EVENT):
                     await self.db.insert_spo2_data(data, timestamp)
                     await self.mqtt_client.publish_spo2_data(data, timestamp)          
                 elif (id == QueueEvent.PR_SENSOR_EVENT):
                     await self.db.insert_pulserate_data(data, timestamp)
+
+                
             except Exception as exc:
                 logger.exception('error here')
                 raise exc
