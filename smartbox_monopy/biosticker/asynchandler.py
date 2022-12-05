@@ -46,13 +46,13 @@ class BiostickerBLEHandler():
 
         # make a lookup table to map the callbacks to each sensor, using the sensor_id
         self.callback_map = {
-            BiostickerOptionsParser.HEARTRATE_SENSOR_ENTRY: self.handle_data_heart_rate,
+            #BiostickerOptionsParser.HEARTRATE_SENSOR_ENTRY: self.handle_data_heart_rate,
             BiostickerOptionsParser.TEMPERATURE_SENSOR_ENTRY: self.handle_data_temperature,
-            BiostickerOptionsParser.BATTERY_SENSOR_ENTRY: self.handle_data_battery,
-            BiostickerOptionsParser.ECG_SENSOR_ENTRY: self.handle_data_ecg,
-            BiostickerOptionsParser.RR1_SENSOR_ENTRY: self.handle_data_rr1,
-            BiostickerOptionsParser.RR2_SENSOR_ENTRY: self.handle_data_rr2,
-            BiostickerOptionsParser.IMU_SENSOR_ENTRY: self.handle_data_imu,
+            #BiostickerOptionsParser.BATTERY_SENSOR_ENTRY: self.handle_data_battery,
+            #BiostickerOptionsParser.ECG_SENSOR_ENTRY: self.handle_data_ecg,
+            #BiostickerOptionsParser.RR1_SENSOR_ENTRY: self.handle_data_rr1,
+            #BiostickerOptionsParser.RR2_SENSOR_ENTRY: self.handle_data_rr2,
+            #BiostickerOptionsParser.IMU_SENSOR_ENTRY: self.handle_data_imu,
         }
 
     def _debug_display_time(self, sensor_id: str) -> None:
@@ -83,6 +83,8 @@ class BiostickerBLEHandler():
             output = reserved_float_values[mantissa - FIRST_RESERVED_VALUE]
         else:
             output = mantissa * (10.0 ** (expoent))
+        
+        return output
 
     async def handle_data_imu(self, char: BleakGATTCharacteristic, data: bytearray) -> None:
         try:
@@ -128,6 +130,7 @@ class BiostickerBLEHandler():
                 self._debug_display_time(self.sensor_id_lookup[char.uuid])
 
             readable_value = self.ieee11073_to_float(data[1:])
+            print(readable_value)
             await self.data_queue.put(QueueItem(
                 QueueEvent.TEMPERATURE_SENSOR_EVENT,
                 data_timestamp,
